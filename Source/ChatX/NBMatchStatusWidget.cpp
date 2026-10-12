@@ -1,4 +1,4 @@
-﻿#include "NBMatchStatusWidget.h"
+#include "NBMatchStatusWidget.h"
 #include "NBGameStateBase.h"
 #include "NBPlayerController.h"
 #include "NBPlayerState.h"
@@ -21,13 +21,13 @@ void UNBMatchStatusWidget::NativeOnInitialized()
     WidgetTree->RootWidget = Root;
     Root->SetVisibility(ESlateVisibility::HitTestInvisible);
     UVerticalBox* Column = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass(), TEXT("NBStatusColumn"));
-
     if (UCanvasPanelSlot* CanvasSlot = Root->AddChildToCanvas(Column))
     {
         CanvasSlot->SetAnchors(FAnchors(0.f, 0.f, 0.f, 0.f));
         CanvasSlot->SetPosition(FVector2D(16.f, 55.f));
         CanvasSlot->SetAutoSize(true);
     }
+
     TurnText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("NBActiveTurn"));
     AttemptsText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("NBAttempts"));
     HelpText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("NBHelp"));

@@ -1,4 +1,3 @@
-﻿
 #include "NBPawn.h"
 
 void ANBPawn::BeginPlay()

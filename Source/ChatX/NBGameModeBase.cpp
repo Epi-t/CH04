@@ -291,12 +291,12 @@ void ANBGameModeBase::JudgeGame(ANBPlayerController* Sender, int32 StrikeCount)
     {
         if (const ANBPlayerState* PS = Sender->GetPlayerState<ANBPlayerState>())
         {
-            FinishRound(PS->PlayerNameString + TEXT(" 승리!"));
+            FinishRound(PS->PlayerNameString + TEXT(" 승리!"), false);
         }
     }
     else if (HaveAllPlayersUsedAttempts())
     {
-        FinishRound(TEXT("무승부! 모든 플레이어가 기회를 소진했습니다."));
+        FinishRound(TEXT("무승부! 모든 플레이어가 기회를 소진했습니다."), true);
     }
     else
     {
@@ -310,6 +310,15 @@ void ANBGameModeBase::ResetGame()
     GetWorldTimerManager().ClearTimer(ResetTimerHandle);
     bRoundEnding = false;
     CurrentTurnIndex = INDEX_NONE;
+
+    // Hide the previous round result for every player before resetting the secret.
+    for (const TWeakObjectPtr<ANBPlayerController>& WeakPC : AllPlayerControllers)
+    {
+        if (ANBPlayerController* PC = WeakPC.Get())
+        {
+            PC->ClientRPCHideRoundResult();
+        }
+    }
 
     if (AllPlayerControllers.Num() < MinimumPlayersToStart)
     {
@@ -373,7 +382,7 @@ void ANBGameModeBase::StartTurn(int32 StartIndex)
         return;
     }
 
-    FinishRound(TEXT("무승부! 모든 플레이어가 기회를 소진했습니다."));
+    FinishRound(TEXT("무승부! 모든 플레이어가 기회를 소진했습니다."), true);
 }
 
 void ANBGameModeBase::AdvanceTurn()
@@ -415,7 +424,7 @@ void ANBGameModeBase::OnTurnTimerTick()
 
     if (HaveAllPlayersUsedAttempts())
     {
-        FinishRound(TEXT("무승부! 모든 플레이어가 기회를 소진했습니다."));
+        FinishRound(TEXT("무승부! 모든 플레이어가 기회를 소진했습니다."), true);
     }
     else
     {
@@ -441,7 +450,7 @@ bool ANBGameModeBase::HaveAllPlayersUsedAttempts() const
     return true;
 }
 
-void ANBGameModeBase::FinishRound(const FString& ResultText)
+void ANBGameModeBase::FinishRound(const FString& ResultText, bool bIsDraw)
 {
     if (bRoundEnding)
     {
@@ -456,8 +465,20 @@ void ANBGameModeBase::FinishRound(const FString& ResultText)
         GS->ActivePlayerName = TEXT("");
         GS->ForceNetUpdate();
     }
-    BroadcastMessage(ResultText);
-    SetNotificationForAll(ResultText);
+    // Only disclose the server-held answer after win/draw was determined.
+    const FString Announcement = FString::Printf(
+        TEXT("%s | 정답 숫자: %s"), *ResultText, *SecretNumberString);
+    BroadcastMessage(Announcement);
+    SetNotificationForAll(Announcement); // Fallback when WBP_RoundResult is not assigned.
+
+    const FString Title = bIsDraw ? TEXT("무승부") : TEXT("승리!");
+    for (const TWeakObjectPtr<ANBPlayerController>& WeakPC : AllPlayerControllers)
+    {
+        if (ANBPlayerController* PC = WeakPC.Get())
+        {
+            PC->ClientRPCShowRoundResult(Title, ResultText, SecretNumberString);
+        }
+    }
 
     // Keep the result widget visible before changing the answer and counters.
     GetWorldTimerManager().SetTimer(ResetTimerHandle, this, &ANBGameModeBase::ResetGame,

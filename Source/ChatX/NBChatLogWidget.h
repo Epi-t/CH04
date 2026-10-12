@@ -1,3 +1,4 @@
+﻿
 #pragma once
 
 #include "CoreMinimal.h"
@@ -6,7 +7,6 @@
 
 class UScrollBox;
 
-// Dedicated local chat UI. Avoids shared GEngine screen debug messages in multi-PIE.
 UCLASS()
 class CHATX_API UNBChatLogWidget : public UUserWidget
 {
@@ -16,9 +16,10 @@ public:
     void AppendMessage(const FString& Message);
 
 protected:
-    virtual void NativeOnInitialized() override;
-
-private:
-    UPROPERTY(Transient)
+    UPROPERTY(meta = (BindWidget))
     TObjectPtr<UScrollBox> MessageScrollBox;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite,
+        Category = "Chat UI")
+    int32 ChatFontSize = 13;
 };

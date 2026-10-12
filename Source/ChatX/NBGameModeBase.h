@@ -58,7 +58,7 @@ private:
     void StartTurn(int32 StartIndex);
     void AdvanceTurn();
     void OnTurnTimerTick();
-    void FinishRound(const FString& ResultText);
+    void FinishRound(const FString& ResultText, bool bIsDraw);
     bool HaveAllPlayersUsedAttempts() const;
     void BroadcastMessage(const FString& Message) const;
     void SendPlayerMessage(ANBPlayerController* Receiver, const FString& Message) const;

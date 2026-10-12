@@ -1,8 +1,9 @@
-#include "NBPlayerController.h"
+﻿#include "NBPlayerController.h"
 #include "NBGameModeBase.h"
 #include "NBChatInput.h"
 #include "NBMatchStatusWidget.h"
 #include "NBChatLogWidget.h"
+#include "NBRoundResultWidget.h"
 #include "Engine/World.h"
 #include "Net/UnrealNetwork.h"
 #include "Blueprint/UserWidget.h"
@@ -24,8 +25,12 @@ void ANBPlayerController::BeginPlay()
     SetInputMode(InputMode);
     bShowMouseCursor = true;
 
-    // Per-player UMG chat feed instead of shared AddOnScreenDebugMessage.
-    ChatLogWidgetInstance = CreateWidget<UNBChatLogWidget>(this, UNBChatLogWidget::StaticClass());
+    if (ChatLogWidgetClass)
+    {
+        ChatLogWidgetInstance = CreateWidget<UNBChatLogWidget>(
+            this, ChatLogWidgetClass);
+    }
+
     if (IsValid(ChatLogWidgetInstance))
     {
         ChatLogWidgetInstance->AddToViewport(1);
@@ -53,7 +58,21 @@ void ANBPlayerController::BeginPlay()
         }
     }
 
-    // Native UI: no additional WBP is required for the replicated timer/attempt HUD.
+
+    if (RoundResultWidgetClass)
+    {
+        RoundResultWidgetInstance = CreateWidget<UNBRoundResultWidget>(this, RoundResultWidgetClass);
+        if (IsValid(RoundResultWidgetInstance))
+        {
+            RoundResultWidgetInstance->AddToViewport(10);
+            ApplyPendingRoundResult();
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("NBPlayerController: assign WBP_RoundResult to Round Result Widget Class."));
+    }
+
     MatchStatusWidgetInstance = CreateWidget<UNBMatchStatusWidget>(this, UNBMatchStatusWidget::StaticClass());
     if (IsValid(MatchStatusWidgetInstance))
     {
@@ -65,7 +84,6 @@ void ANBPlayerController::SetChatMessageString(const FString& InChatMessageStrin
 {
     if (IsLocalController())
     {
-        // Send RAW input, not a client-generated name/attempt count.
         ServerRPCPrintChatMessageString(InChatMessageString);
     }
 }
@@ -78,7 +96,6 @@ void ANBPlayerController::PrintChatMessageString(const FString& InChatMessageStr
     }
     else
     {
-        // The login message can arrive before the local widget is constructed.
         PendingChatMessages.Add(InChatMessageString);
     }
 }
@@ -93,6 +110,51 @@ void ANBPlayerController::ServerRPCPrintChatMessageString_Implementation(const F
     if (ANBGameModeBase* GM = GetWorld() ? GetWorld()->GetAuthGameMode<ANBGameModeBase>() : nullptr)
     {
         GM->PrintChatMessageString(this, InChatMessageString);
+    }
+}
+
+void ANBPlayerController::ApplyPendingRoundResult()
+{
+    if (!bHasPendingRoundResult || !IsValid(RoundResultWidgetInstance))
+    {
+        return;
+    }
+
+    RoundResultWidgetInstance->ShowResult(
+        FText::FromString(PendingResultTitle),
+        FText::FromString(PendingResultDescription),
+        PendingSecretNumber);
+
+    if (IsValid(NotificationTextWidgetInstance))
+    {
+        NotificationTextWidgetInstance->SetVisibility(ESlateVisibility::Collapsed);
+    }
+}
+
+void ANBPlayerController::ClientRPCShowRoundResult_Implementation(
+    const FString& InTitle, const FString& InDescription, const FString& InSecretNumber)
+{
+    bHasPendingRoundResult = true;
+    PendingResultTitle = InTitle;
+    PendingResultDescription = InDescription;
+    PendingSecretNumber = InSecretNumber;
+    ApplyPendingRoundResult();
+}
+
+void ANBPlayerController::ClientRPCHideRoundResult_Implementation()
+{
+    bHasPendingRoundResult = false;
+    PendingResultTitle.Empty();
+    PendingResultDescription.Empty();
+    PendingSecretNumber.Empty();
+
+    if (IsValid(RoundResultWidgetInstance))
+    {
+        RoundResultWidgetInstance->HideResult();
+    }
+    if (IsValid(NotificationTextWidgetInstance))
+    {
+        NotificationTextWidgetInstance->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
     }
 }
 

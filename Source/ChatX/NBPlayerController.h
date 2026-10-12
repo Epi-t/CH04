@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
@@ -7,6 +7,7 @@
 class UNBChatInput;
 class UNBMatchStatusWidget;
 class UNBChatLogWidget;
+class UNBRoundResultWidget;
 class UUserWidget;
 
 UCLASS()
@@ -18,7 +19,6 @@ public:
     ANBPlayerController();
     virtual void BeginPlay() override;
 
-    // Called only by the local chat widget. The server adds the real player name.
     void SetChatMessageString(const FString& InChatMessageString);
     void PrintChatMessageString(const FString& InChatMessageString);
 
@@ -27,6 +27,13 @@ public:
 
     UFUNCTION(Server, Reliable)
     void ServerRPCPrintChatMessageString(const FString& InChatMessageString);
+
+    UFUNCTION(Client, Reliable)
+    void ClientRPCShowRoundResult(const FString& InTitle, const FString& InDescription,
+                                  const FString& InSecretNumber);
+
+    UFUNCTION(Client, Reliable)
+    void ClientRPCHideRoundResult();
 
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
@@ -49,10 +56,25 @@ protected:
     UPROPERTY()
     TObjectPtr<UNBChatLogWidget> ChatLogWidgetInstance;
 
+    UPROPERTY(EditDefaultsOnly, Category="Number Baseball|UI")
+    TSubclassOf<UNBRoundResultWidget> RoundResultWidgetClass;
+
+    UPROPERTY()
+    TObjectPtr<UNBRoundResultWidget> RoundResultWidgetInstance;
+
+    bool bHasPendingRoundResult = false;
+    FString PendingResultTitle;
+    FString PendingResultDescription;
+    FString PendingSecretNumber;
+
+    void ApplyPendingRoundResult();
+
     TArray<FString> PendingChatMessages;
 
+    UPROPERTY(EditDefaultsOnly, Category = "Number Baseball|UI")
+    TSubclassOf<UNBChatLogWidget> ChatLogWidgetClass;
+
 public:
-    // Existing WBP_NotificationText may bind to this Text property.
     UPROPERTY(Replicated, BlueprintReadOnly, Category="Number Baseball|UI")
     FText NotificationText;
 };
